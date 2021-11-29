@@ -25,5 +25,5 @@ jobs:
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2.2.4
       with:
-        path: ${{github.workspace}}/build/WallShader.exe
+        path: ${{github.workspace}}/build/Release/WallShader.exe
       
