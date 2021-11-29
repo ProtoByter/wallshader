@@ -37,8 +37,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int S
     SDL_Window* sdl_window = SDL_CreateWindowFrom((void*)window);
     SDL_Renderer* renderer = SDL_CreateRenderer(sdl_window, -1, 0);
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
+    for (;;) {
+        SDL_RenderClear(renderer);
+        SDL_RenderPresent(renderer);
+    }
     SDL_DestroyRenderer(renderer);
     SDL_Quit();
     return 0;
