@@ -4,6 +4,7 @@
 #include <shellapi.h>
 #include <commctrl.h>
 #include <SDL.h>
+#include <random>
 #include "resource.h"
 #include "SDL_syswm.h"
 
@@ -69,8 +70,20 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Welcome to WallShader!", "Thanks for choosing WallShader.\nTo close WallShader just click on it's icon in the tray.", hidden_window);
 
+    // Random stuff
+
+    std::mt19937_64 twister;
+
+    int x, y;
+
+    SDL_GetWindowSize(sdl_window, &x, &y);
+
     while (running) {
         SDL_RenderClear(renderer);
+
+        SDL_SetRenderDrawColor(renderer, twister() % 256, twister() % 256, twister() % 256, 255);
+        SDL_RenderDrawLine(renderer, twister() % x, twister() % y, twister() % x, twister() % y);
+
         SDL_RenderPresent(renderer);
 
         SDL_Event e;
