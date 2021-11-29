@@ -1,46 +1,98 @@
+#define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
-#include <SDL2/SDL.h>
+#include <shellapi.h>
+#include <commctrl.h>
+#include <SDL.h>
+#include "resource.h"
+#include "SDL_syswm.h"
 
-BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
-{
-    HWND p = FindWindowExW(hwnd, NULL, L"SHELLDLL_DefView", NULL);
-    HWND* ret = (HWND*)lParam;
+#pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
-    if (p)
-    {
-        // Gets the WorkerW Window after the current one.
-        *ret = FindWindowExW(NULL, hwnd, L"WorkerW", NULL);
+BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
+    HWND p = FindWindowEx(hwnd, NULL, "SHELLDLL_DefView", NULL);
+    HWND *ret = (HWND *) lParam;
+
+    if (p) {
+        *ret = FindWindowEx(NULL, hwnd, "WorkerW", NULL);
     }
     return true;
 }
 
-HWND get_wallpaper_window()
-{
+HWND get_wallpaper_window() {
     // Fetch the Progman window
-    HWND progman = FindWindowW(L"ProgMan", NULL);
-    // Send 0x052C to Progman. This message directs Progman to spawn a 
-    // WorkerW behind the desktop icons. If it is already there, nothing 
-    // happens.
+    HWND progman = FindWindow("ProgMan", NULL);
     SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000, nullptr);
-    // We enumerate all Windows, until we find one, that has the SHELLDLL_DefView 
-    // as a child. 
-    // If we found that window, we take its next sibling and assign it to workerw.
     HWND wallpaper_hwnd = nullptr;
-    EnumWindows(EnumWindowsProc, (LPARAM)&wallpaper_hwnd);
-    // Return the handle you're looking for.
+    EnumWindows(EnumWindowsProc, (LPARAM) &wallpaper_hwnd);
     return wallpaper_hwnd;
 }
 
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd) {
-    SDL_Init(SDL_INIT_VIDEO);
+int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd) {
+
+    // Get wallpaper window
+
     HWND window = get_wallpaper_window();
-    SDL_Window* sdl_window = SDL_CreateWindowFrom((void*)window);
-    SDL_Renderer* renderer = SDL_CreateRenderer(sdl_window, -1, 0);
+
+    // Get and display on the background
+
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Window *sdl_window = SDL_CreateWindowFrom((void *) window);
+    SDL_Window *hidden_window = SDL_CreateWindow("Hidden Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 200, 200, SDL_WINDOW_HIDDEN);
+    SDL_Renderer *renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    for (;;) {
+
+    bool running = true;
+
+    // Add item to taskbar status area
+
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+
+    NOTIFYICONDATA icon;
+    if (SDL_GetWindowWMInfo(hidden_window, &info))
+    {
+        icon.uCallbackMessage = WM_USER + 1;
+        icon.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+        icon.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON));
+        icon.cbSize = sizeof(icon);
+        icon.hWnd = info.info.win.window;
+        icon.uVersion = NOTIFYICON_VERSION_4;
+        strcpy_s(icon.szTip, "WallShader");
+
+        Shell_NotifyIcon(NIM_DELETE, &icon);
+        Shell_NotifyIcon(NIM_ADD, &icon);
+        Shell_NotifyIcon(NIM_SETVERSION, &icon);
+    }
+
+    SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
+
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Welcome to WallShader!", "Thanks for choosing WallShader.\nTo close WallShader just click on it's icon in the tray.", hidden_window);
+
+    while (running) {
         SDL_RenderClear(renderer);
         SDL_RenderPresent(renderer);
+
+        SDL_Event e;
+        if (SDL_PollEvent(&e)) {
+            switch (e.type)
+            {
+                case SDL_SYSWMEVENT:
+                    if (e.syswm.msg->msg.win.msg == WM_USER + 1)
+                    {
+                        if (LOWORD(e.syswm.msg->msg.win.lParam) == WM_LBUTTONDOWN)
+                        {
+                            running = false;
+                        }
+                    }
+                    break;
+                case SDL_QUIT:
+                    running = false;
+                    break;
+            }
+        }
     }
+    Shell_NotifyIcon(NIM_DELETE, &icon);
     SDL_DestroyRenderer(renderer);
     SDL_Quit();
     return 0;
