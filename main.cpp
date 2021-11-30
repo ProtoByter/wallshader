@@ -110,5 +110,7 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
     SDL_DestroyWindow(hidden_window);
     SDL_DestroyRenderer(renderer);
     SDL_Quit();
+    DestroyWindow(window);
+    
     return 0;
 }
