@@ -79,7 +79,7 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
     SDL_GetWindowSize(sdl_window, &x, &y);
 
     while (running) {
-        SDL_RenderClear(renderer);
+        // SDL_RenderClear(renderer);
 
         SDL_SetRenderDrawColor(renderer, twister() % 256, twister() % 256, twister() % 256, 255);
         SDL_RenderDrawLine(renderer, twister() % x, twister() % y, twister() % x, twister() % y);
