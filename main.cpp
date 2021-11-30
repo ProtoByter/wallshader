@@ -106,6 +106,8 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
         }
     }
     Shell_NotifyIcon(NIM_DELETE, &icon);
+    SDL_DestroyWindow(sdl_window);
+    SDL_DestroyWindow(hidden_window);
     SDL_DestroyRenderer(renderer);
     SDL_Quit();
     return 0;
