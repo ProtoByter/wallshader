@@ -2,11 +2,14 @@
 
 #include <windows.h>
 #include <shellapi.h>
-#include <commctrl.h>
 #include <SDL.h>
 #include <random>
 #include "resource.h"
 #include "SDL_syswm.h"
+#include <imgui_impl_sdl.h>
+#include <imgui_impl_opengl3.h>
+#include <imgui_impl_opengl3_loader.h>
+#include <SDL_opengl.h>
 
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
@@ -21,7 +24,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 }
 
 HWND get_wallpaper_window() {
-    // Fetch the Progman window
+    // Fetch the ProgMan window
     HWND progman = FindWindow("ProgMan", NULL);
     SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000, nullptr);
     HWND wallpaper_hwnd = nullptr;
@@ -35,15 +38,44 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 
     HWND window = get_wallpaper_window();
 
-    // Get and display on the background
+    // Init SDL
 
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_Window *sdl_window = SDL_CreateWindowFrom((void *) window);
-    SDL_Window *hidden_window = SDL_CreateWindow("Hidden Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 200, 200, SDL_WINDOW_HIDDEN);
-    SDL_Renderer *renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER);
+    SDL_Window *hidden_window = SDL_CreateWindow("Hidden Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 200, 200, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
+
+    char address[32];
+    sprintf(address, "%p", hidden_window);
+
+    SDL_SetHint(SDL_HINT_VIDEO_WINDOW_SHARE_PIXEL_FORMAT, address);
+
+    SDL_Window *sdl_window = SDL_CreateWindowFrom((void *)window);
 
     bool running = true;
+
+    // Set up ImGUI
+
+    const char* glsl_version = "#version 130";
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+    SDL_GLContext gl_ctx = SDL_GL_CreateContext(sdl_window);
+    SDL_GL_MakeCurrent(sdl_window, gl_ctx);
+    SDL_GL_SetSwapInterval(1);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplSDL2_InitForOpenGL(sdl_window, gl_ctx);
+    ImGui_ImplOpenGL3_Init(glsl_version);
 
     // Add item to taskbar status area
 
@@ -78,16 +110,13 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 
     SDL_GetWindowSize(sdl_window, &x, &y);
 
+    // Main loop
+
     while (running) {
-        // SDL_RenderClear(renderer);
-
-        SDL_SetRenderDrawColor(renderer, twister() % 256, twister() % 256, twister() % 256, 255);
-        SDL_RenderDrawLine(renderer, twister() % x, twister() % y, twister() % x, twister() % y);
-
-        SDL_RenderPresent(renderer);
 
         SDL_Event e;
-        if (SDL_PollEvent(&e)) {
+        while (SDL_PollEvent(&e)) {
+            ImGui_ImplSDL2_ProcessEvent(&e);
             switch (e.type)
             {
                 case SDL_SYSWMEVENT:
@@ -104,13 +133,33 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
                     break;
             }
         }
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Hello, world!");
+        ImGui::Text("This is some useful text.");
+        ImGui::End();
+
+        ImGui::Render();
+
+        glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        SDL_GL_SwapWindow(sdl_window);
     }
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+
+    SDL_GL_DeleteContext(gl_ctx);
+
     Shell_NotifyIcon(NIM_DELETE, &icon);
     SDL_DestroyWindow(sdl_window);
     SDL_DestroyWindow(hidden_window);
-    SDL_DestroyRenderer(renderer);
     SDL_Quit();
-    DestroyWindow(window);
-    
     return 0;
 }
