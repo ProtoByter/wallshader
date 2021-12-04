@@ -34,21 +34,23 @@ HWND get_wallpaper_window() {
 
 int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd) {
 
-    // Get wallpaper window
+    // Get wallpaper wallpaperWindow
 
-    HWND window = get_wallpaper_window();
+    HWND wallpaperWindow = get_wallpaper_window();
 
     // Init SDL
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER);
-    SDL_Window *hidden_window = SDL_CreateWindow("Hidden Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 200, 200, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
+    SDL_Window* hidden_window = SDL_CreateWindow("Hidden Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 200, 200, SDL_WINDOW_HIDDEN);
+
+    SDL_Window* control_window = SDL_CreateWindow("WallShader Control Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
 
     char address[32];
-    sprintf(address, "%p", hidden_window);
+    sprintf(address, "%p", control_window);
 
     SDL_SetHint(SDL_HINT_VIDEO_WINDOW_SHARE_PIXEL_FORMAT, address);
 
-    SDL_Window *sdl_window = SDL_CreateWindowFrom((void *)window);
+    SDL_Window* wallpaperWindowSDL = SDL_CreateWindowFrom((void *)wallpaperWindow);
 
     bool running = true;
 
@@ -64,8 +66,8 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    SDL_GLContext gl_ctx = SDL_GL_CreateContext(sdl_window);
-    SDL_GL_MakeCurrent(sdl_window, gl_ctx);
+    SDL_GLContext control_gl_ctx = SDL_GL_CreateContext(control_window);
+    SDL_GL_MakeCurrent(control_window, control_gl_ctx);
     SDL_GL_SetSwapInterval(1);
 
     IMGUI_CHECKVERSION();
@@ -74,8 +76,14 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 
     ImGui::StyleColorsDark();
 
-    ImGui_ImplSDL2_InitForOpenGL(sdl_window, gl_ctx);
+    ImGui_ImplSDL2_InitForOpenGL(control_window, control_gl_ctx);
     ImGui_ImplOpenGL3_Init(glsl_version);
+
+    // Create OpenGL Context for Background Window
+
+    SDL_GLContext wallpaper_gl_ctx = SDL_GL_CreateContext(wallpaperWindowSDL);
+    SDL_GL_MakeCurrent(wallpaperWindowSDL, wallpaper_gl_ctx);
+    SDL_GL_SetSwapInterval(1);
 
     // Add item to taskbar status area
 
@@ -102,15 +110,13 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Welcome to WallShader!", "Thanks for choosing WallShader.\nTo close WallShader just click on it's icon in the tray.", hidden_window);
 
-    // Random stuff
-
-    std::mt19937_64 twister;
-
     int x, y;
 
-    SDL_GetWindowSize(sdl_window, &x, &y);
+    SDL_GetWindowSize(wallpaperWindowSDL, &x, &y);
 
     // Main loop
+
+    bool control_window_shown = false;
 
     while (running) {
 
@@ -124,7 +130,14 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
                     {
                         if (LOWORD(e.syswm.msg->msg.win.lParam) == WM_LBUTTONDOWN)
                         {
-                            running = false;
+                            if (control_window_shown) {
+                                SDL_HideWindow(control_window);
+                            }
+                            else {
+                                SDL_ShowWindow(control_window);
+                            }
+
+                            control_window_shown = !control_window_shown;
                         }
                     }
                     break;
@@ -134,12 +147,16 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
             }
         }
 
+        SDL_GL_MakeCurrent(control_window, control_gl_ctx);
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Hello, world!");
-        ImGui::Text("This is some useful text.");
+        ImGui::Begin("General Controls");
+        if (ImGui::Button("Stop")) {
+            running = false;
+        }
         ImGui::End();
 
         ImGui::Render();
@@ -148,17 +165,26 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        SDL_GL_SwapWindow(sdl_window);
+        SDL_GL_SwapWindow(control_window);
+
+        SDL_GL_MakeCurrent(wallpaperWindowSDL, wallpaper_gl_ctx);
+
+        glViewport(0, 0, x, y);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        SDL_GL_SwapWindow(wallpaperWindowSDL);
     }
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-    SDL_GL_DeleteContext(gl_ctx);
+    SDL_GL_DeleteContext(control_gl_ctx);
+    SDL_GL_DeleteContext(wallpaper_gl_ctx);
 
     Shell_NotifyIcon(NIM_DELETE, &icon);
-    SDL_DestroyWindow(sdl_window);
+    SDL_DestroyWindow(wallpaperWindowSDL);
     SDL_DestroyWindow(hidden_window);
     SDL_Quit();
     return 0;
