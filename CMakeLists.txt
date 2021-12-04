@@ -10,21 +10,15 @@ include(FindOpenGL)
 
 include(depends/sdl2.cmake)
 
-add_custom_target(
-        main.o
-        COMMAND ${CMAKE_RC_COMPILER} main.rc main.o
-        DEPENDS icon.ico
-        SOURCES main.rc
-)
-
 add_executable(WallShader WIN32
-        main.cpp main.rc
+        src/main.cpp resources/main.rc
         imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp
         imgui/backends/imgui_impl_sdl.cpp imgui/backends/imgui_impl_opengl3.cpp
-)
+        src/WallpaperWindow.cpp src/WallpaperWindow.hpp src/ControlWindow.cpp src/ControlWindow.hpp src/Window.hpp)
 
 target_link_libraries(WallShader SDL2-static Comctl32 OpenGL::GL)
 target_include_directories(WallShader PRIVATE
         ${sdl2_SOURCE_DIR}/include
         imgui/ imgui/backends/
+        resources/
 )
