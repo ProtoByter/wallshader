@@ -1,5 +1,5 @@
 #include "WallpaperWindow.hpp"
-#include "SDL_opengl.h"
+#include <glbinding/gl/gl.h>
 
 WallpaperWindow::WallpaperWindow(const char* otherWindowAddr) {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER);
@@ -31,9 +31,9 @@ WallpaperWindow::WallpaperWindow(const char* otherWindowAddr) {
 bool WallpaperWindow::Update() {
     SDL_GL_MakeCurrent(this->window, this->context);
 
-    glViewport(0, 0, this->x, this->y);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    gl::glViewport(0, 0, this->x, this->y);
+    gl::glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(gl::GL_COLOR_BUFFER_BIT);
 
     SDL_GL_SwapWindow(this->window);
 
